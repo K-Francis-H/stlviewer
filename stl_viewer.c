@@ -24,6 +24,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#include <unistd.h>
 
 
 #include <stdio.h>
@@ -50,10 +51,12 @@
 #define DEFAULT_ROTATION_X 0
 #define DEFAULT_ROTATION_Y 0
 #define DEFAULT_ROTATION_Z 0
-#define DEFAULT_ZOOM 1.0
+#define DEFAULT_ZOOM 2.5 //2.0
 
 #define MAX_Z_ORTHO_FACTOR 20
 #define ROTATION_FACTOR 15
+
+#define SCREEN_SIZE 256
 
 static int rotating = 0;
 static int wiremesh = 0;
@@ -65,7 +68,7 @@ static float zoom = DEFAULT_ZOOM;
 static int screen_width = 0;
 static int screen_height = 0;
 
-static float gobal_ambient_light[4] = {0.0, 0.0, 0.0, 0};
+static float global_ambient_light[4] = {0.0, 0.0, 0.0, 0};
 static float light_ambient[4] = {0.3, 0.3, 0.3, 0.0};
 static float light_diffuse[4] = {0.5, 0.5, 0.5, 1.0};
 static float light_specular[4] = {0.5, 0.5, 0.5, 1.0};
@@ -77,6 +80,23 @@ static float rot_last_quat[4];
 static int rot_begin_x = 0;
 static int rot_begin_y = 0;
 
+static float x_ang = -55.0;
+static float y_ang = 0.0;
+static float z_ang = 0.0;
+static GLfloat rot_matrix[16];
+void rotate(float m[16], float x_deg, float y_deg, float z_deg);
+
+void generateBitmapImage(unsigned char *image, int height, int width, char* imageFileName);
+unsigned char* createBitmapFileHeader(int height, int width);
+unsigned char* createBitmapInfoHeader(int height, int width);
+
+const int bytesPerPixel = 4; /// red, green, blue, alpha
+const int fileHeaderSize = 14;
+const int infoHeaderSize = 40;
+
+//texture stuff
+GLuint texture[1];
+
 static GLuint model;
 
 typedef struct {
@@ -84,6 +104,11 @@ typedef struct {
 	GLfloat y;
 	GLfloat z;
 } vector_t;
+
+typedef union{
+	unsigned int pixel;
+	char rgba[4];
+} pixel;
 
 static void 
 mouse_motion(int x, int y) 
@@ -114,6 +139,7 @@ mouse_click(int button, int state, int x, int y)
         }
 }
 
+//just use this as an interface to modify via command line
 static void
 keyboardFunc(unsigned char key, int x, int y)
 {
@@ -196,7 +222,7 @@ reshape(int width, int height)
 
         glLoadIdentity();
 	// Set global ambient light
-	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, gobal_ambient_light);
+	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, global_ambient_light);
 
 	glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
@@ -262,9 +288,9 @@ drawBox(void)
 
 	glScalef(zoom, zoom, zoom);
 
-        GLfloat rot_matrix[4][4];
-        build_rotmatrix(rot_matrix, rot_cur_quat);
-        glMultMatrixf(&rot_matrix[0][0]);
+        //GLfloat rot_matrix[4][4];
+        //build_rotmatrix(rot_matrix, rot_cur_quat);
+        glMultMatrixf(&rot_matrix[0]);
 
 	glTranslatef(
 		-((stl_max_x(stl) + stl_min_x(stl))/2),
@@ -282,9 +308,18 @@ drawBox(void)
 	glutSwapBuffers();
 }
 
+int frame_count = 0;
 void
 idle_func(void)
 {
+	z_ang += 5.0;
+	rotate(rot_matrix, x_ang, y_ang, z_ang);
+	screenshot2(frame_count);
+	if(z_ang >= 360.0){
+		exit(0);
+	}else{
+		frame_count++;
+	}
 	glutPostRedisplay();
 }
 
@@ -352,8 +387,72 @@ init(char *filename)
 	glFlush();
 }
 
-int
-main(int argc, char **argv)
+/*void rotate_forever(){
+	printf("rotate_forever()");
+	mouse_click(GLUT_LEFT_BUTTON, GLUT_DOWN, screen_width/2, screen_height/2);
+	
+	mouse_motion(10, 0);
+	display();
+	//glutPostRedisplay();
+	sleep(1000);
+	printf("changed");
+	rotate_forever();
+  	
+}*/
+
+void rotate(float m[16], float x_deg, float y_deg, float z_deg){
+	float csx = cos(M_PI * x_deg/180.0);
+	float snx = sin(M_PI * x_deg/180.0);
+	float csy = cos(M_PI * y_deg/180.0);
+	float sny = sin(M_PI * y_deg/180.0);
+	float csz = cos(M_PI * z_deg/180.0);
+	float snz = sin(M_PI * z_deg/180.0);
+
+	m[0] = (csy*csz);              m[4] = (-csy*snz);             m[8] = sny;        m[12] = 0;//position.x();
+	m[1] = (snx*sny*csz+csx*snz);  m[5] = (-snx*sny*snz+csx*csz); m[9] = (-snx*csy); m[13] = 0;//position.y();
+	m[2] = (-csx*sny*csz+snx*snz); m[6] = (csx*sny*snz+snx*csz);  m[10] = (csx*csy); m[14] = 0;//position.z();
+	m[3] = 0;                      m[7] = 0;                      m[11] = 0;         m[15] = 1;
+}
+
+void create_texture(void){
+	glGenTextures(1, texture);
+	glBindTexture(GL_TEXTURE_2D, texture[0]);
+	glActiveTexture(texture[0]);
+	//glTexImage2D(GL_TEXTURE_2D, 0, 
+}
+
+void display_viewport_info(void){
+	GLint viewport[4];
+	glGetIntegerv( GL_VIEWPORT, viewport );
+	printf("viewport info:\ntop left: (%d, %d)\nbottom right: (%d, %d)", viewport[0], viewport[1], viewport[2], viewport[3]);
+}
+
+void screenshot2(int frame_num){
+
+    	char bitmap[14 + 40 + SCREEN_SIZE*SCREEN_SIZE*4];
+	GLuint pixels[SCREEN_SIZE*SCREEN_SIZE];
+	glReadPixels(0,0, SCREEN_SIZE, SCREEN_SIZE, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, pixels);
+
+	int i;
+	for(i=0; i < SCREEN_SIZE*SCREEN_SIZE; i++){
+		pixels[i] >>= 8; //prevents weird interpeting of alpha as color leading to shitty blue shift
+	}
+	char file_name[21];
+
+	if(frame_num < 10){
+		sprintf(file_name, "/tmp/stl2gif/000%i.bmp", frame_num);
+	}else if(frame_num < 100){
+		sprintf(file_name, "/tmp/stl2gif/00%i.bmp", frame_num);
+	}else{
+		sprintf(file_name, "/tmp/stl2gif/0%i.bmp", frame_num);
+	}
+	//printf("%s", file_name);
+    	generateBitmapImage((unsigned char *)pixels, SCREEN_SIZE, SCREEN_SIZE, file_name );
+}
+
+
+
+int main(int argc, char **argv)
 {
 
   if (argc != 2) {
@@ -363,7 +462,10 @@ main(int argc, char **argv)
 
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+
+  glutInitWindowSize(SCREEN_SIZE, SCREEN_SIZE);
   glutCreateWindow(argv[1]);
+  
   glutKeyboardFunc(keyboardFunc);
   glutMotionFunc(mouse_motion); 
   glutMouseFunc(mouse_click);
@@ -371,7 +473,110 @@ main(int argc, char **argv)
   glutReshapeFunc(reshape);
   glutIdleFunc(idle_func);
   init(argv[1]);
-  trackball(rot_cur_quat, 0.0, 0.0, 0.0, 0.0);
+
+  //trackball(rot_cur_quat, 0.0, -0.8, 0.0, 0.0);
+  rotate(rot_matrix, x_ang, y_ang, z_ang);
+  //display_viewport_info();
+  /*while(1){
+	z_ang += 15.0;
+	rotate(rot_matrix, x_ang, y_ang, z_ang);
+	display();
+	sleep(1000);
+  }*/
+  //init();
+  //display();
+  //screenshot2();
   glutMainLoop();
   return 0;             /* ANSI C requires main to return int. */
+}
+
+
+
+
+
+
+
+void generateBitmapImage(unsigned char *image, int height, int width, char* imageFileName){
+
+    unsigned char* fileHeader = createBitmapFileHeader(height, width);
+    unsigned char* infoHeader = createBitmapInfoHeader(height, width);
+    unsigned char padding[3] = {0xff, 0xff, 0xff};
+    int paddingSize = (4-(width*bytesPerPixel)%4)%4;
+
+    FILE* imageFile = fopen(imageFileName, "wb");
+
+    fwrite(fileHeader, 1, fileHeaderSize, imageFile);
+    fwrite(infoHeader, 1, infoHeaderSize, imageFile);
+
+    char data[SCREEN_SIZE*SCREEN_SIZE*bytesPerPixel];
+
+    int i,j;
+    for(i=0; i<height; i++){
+	
+        fwrite(image+(i*width*bytesPerPixel), bytesPerPixel, width, imageFile);
+	fwrite(padding, 1, paddingSize, imageFile);
+	    
+    } 
+    /*for(i=0; i < height*bytesPerPixel; i+=4){
+	for(j=0; j < width*bytesPerPixel; j+=4){
+		data[i*width+j] = (unsigned char)(image[i*width+j]);
+		data[i*width+j+1] = (unsigned char)(image[i*width+j]>>8);
+		data[i*width+j+2] = (unsigned char)(image[i*width+j]>>16);
+		data[i*width+j+3] = (unsigned char)(image[i*width+j]>>24);
+	}
+    }
+    fwrite(data, sizeof(char), SCREEN_SIZE*SCREEN_SIZE*bytesPerPixel,*/
+
+    fclose(imageFile);
+}
+
+unsigned char* createBitmapFileHeader(int height, int width){
+    int fileSize = fileHeaderSize + infoHeaderSize + bytesPerPixel*height*width;
+
+    static unsigned char fileHeader[] = {
+        0,0, /// signature
+        0,0,0,0, /// image file size in bytes
+        0,0,0,0, /// reserved
+        0,0,0,0, /// start of pixel array
+    };
+
+    fileHeader[ 0] = (unsigned char)('B');
+    fileHeader[ 1] = (unsigned char)('M');
+    fileHeader[ 2] = (unsigned char)(fileSize    );
+    fileHeader[ 3] = (unsigned char)(fileSize>> 8);
+    fileHeader[ 4] = (unsigned char)(fileSize>>16);
+    fileHeader[ 5] = (unsigned char)(fileSize>>24);
+    fileHeader[10] = (unsigned char)(fileHeaderSize + infoHeaderSize);
+
+    return fileHeader;
+}
+
+unsigned char* createBitmapInfoHeader(int height, int width){
+    static unsigned char infoHeader[] = {
+        0,0,0,0, /// header size
+        0,0,0,0, /// image width
+        0,0,0,0, /// image height
+        0,0, /// number of color planes
+        0,0, /// bits per pixel
+        0,0,0,0, /// compression
+        0,0,0,0, /// image size
+        0,0,0,0, /// horizontal resolution
+        0,0,0,0, /// vertical resolution
+        0,0,0,0, /// colors in color table
+        0,0,0,0, /// important color count
+    };
+
+    infoHeader[ 0] = (unsigned char)(infoHeaderSize);
+    infoHeader[ 4] = (unsigned char)(width    );
+    infoHeader[ 5] = (unsigned char)(width>> 8);
+    infoHeader[ 6] = (unsigned char)(width>>16);
+    infoHeader[ 7] = (unsigned char)(width>>24);
+    infoHeader[ 8] = (unsigned char)(height    );
+    infoHeader[ 9] = (unsigned char)(height>> 8);
+    infoHeader[10] = (unsigned char)(height>>16);
+    infoHeader[11] = (unsigned char)(height>>24);
+    infoHeader[12] = (unsigned char)(1);
+    infoHeader[14] = (unsigned char)(bytesPerPixel*8);
+
+    return infoHeader;
 }
