@@ -42,7 +42,8 @@
 #endif
 
 #include "stl.h"
-#include "trackball.h"
+//#include "trackball.h"
+#include "bitmap.h"
 
 #define MAX( x, y) (x) > (y) ? (x) : (y)
 #define MIN( x, y) (x) < (y) ? (x) : (y)
@@ -58,7 +59,7 @@
 
 #define SCREEN_SIZE 256
 
-static int rotating = 0;
+//static int rotating = 0;
 static int wiremesh = 0;
 static GLfloat scale = DEFAULT_SCALE;
 static stl_t *stl;
@@ -75,10 +76,10 @@ static float light_specular[4] = {0.5, 0.5, 0.5, 1.0};
 static float mat_shininess[] = {10.0};
 static float mat_specular[] = { 0.5, 0.5, 0.5, 1.0 };
 
-static float rot_cur_quat[4];
-static float rot_last_quat[4];
-static int rot_begin_x = 0;
-static int rot_begin_y = 0;
+//static float rot_cur_quat[4];
+//static float rot_last_quat[4];
+//static int rot_begin_x = 0;
+//static int rot_begin_y = 0;
 
 static float x_ang = -55.0;
 static float y_ang = 0.0;
@@ -86,13 +87,13 @@ static float z_ang = 0.0;
 static GLfloat rot_matrix[16];
 void rotate(float m[16], float x_deg, float y_deg, float z_deg);
 
-void generateBitmapImage(unsigned char *image, int height, int width, char* imageFileName);
-unsigned char* createBitmapFileHeader(int height, int width);
-unsigned char* createBitmapInfoHeader(int height, int width);
+//void generateBitmapImage(unsigned char *image, int height, int width, char* imageFileName);
+//unsigned char* createBitmapFileHeader(int height, int width);
+//unsigned char* createBitmapInfoHeader(int height, int width);
 
-const int bytesPerPixel = 4; /// red, green, blue, alpha
-const int fileHeaderSize = 14;
-const int infoHeaderSize = 40;
+void screenshot2(int frame_num);
+
+
 
 //texture stuff
 GLuint texture[1];
@@ -113,7 +114,7 @@ typedef union{
 static void 
 mouse_motion(int x, int y) 
 {
-        if (rotating) {
+        /*if (rotating) {
                 trackball(rot_last_quat, 
                          (2.0 * rot_begin_x - screen_width) / screen_width,
                          (screen_height - 2.0 * rot_begin_y) / screen_height,
@@ -122,13 +123,13 @@ mouse_motion(int x, int y)
                 rot_begin_x = x;
                 rot_begin_y = y;
                 add_quats(rot_last_quat, rot_cur_quat, rot_cur_quat);
-        }
+        }*/
 }
 
 static void
 mouse_click(int button, int state, int x, int y) 
 {
-        if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        /*if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
                 rotating = 1;
                 rot_begin_x = x;
                 rot_begin_y = y;
@@ -136,14 +137,14 @@ mouse_click(int button, int state, int x, int y)
 
         if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
                 rotating = 0;
-        }
+        }*/
 }
 
 //just use this as an interface to modify via command line
 static void
 keyboardFunc(unsigned char key, int x, int y)
 {
-	switch (key) {
+	/*switch (key) {
 		case 'z':
                 case 'Z':
 			zoom += 0.2;
@@ -175,7 +176,7 @@ keyboardFunc(unsigned char key, int x, int y)
 		default:
 			break;
 
-	}
+	}*/
 }
 
 static void
@@ -387,18 +388,7 @@ init(char *filename)
 	glFlush();
 }
 
-/*void rotate_forever(){
-	printf("rotate_forever()");
-	mouse_click(GLUT_LEFT_BUTTON, GLUT_DOWN, screen_width/2, screen_height/2);
-	
-	mouse_motion(10, 0);
-	display();
-	//glutPostRedisplay();
-	sleep(1000);
-	printf("changed");
-	rotate_forever();
-  	
-}*/
+
 
 void rotate(float m[16], float x_deg, float y_deg, float z_deg){
 	float csx = cos(M_PI * x_deg/180.0);
@@ -429,7 +419,6 @@ void display_viewport_info(void){
 
 void screenshot2(int frame_num){
 
-    	char bitmap[14 + 40 + SCREEN_SIZE*SCREEN_SIZE*4];
 	GLuint pixels[SCREEN_SIZE*SCREEN_SIZE];
 	glReadPixels(0,0, SCREEN_SIZE, SCREEN_SIZE, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, pixels);
 
@@ -488,95 +477,4 @@ int main(int argc, char **argv)
   //screenshot2();
   glutMainLoop();
   return 0;             /* ANSI C requires main to return int. */
-}
-
-
-
-
-
-
-
-void generateBitmapImage(unsigned char *image, int height, int width, char* imageFileName){
-
-    unsigned char* fileHeader = createBitmapFileHeader(height, width);
-    unsigned char* infoHeader = createBitmapInfoHeader(height, width);
-    unsigned char padding[3] = {0xff, 0xff, 0xff};
-    int paddingSize = (4-(width*bytesPerPixel)%4)%4;
-
-    FILE* imageFile = fopen(imageFileName, "wb");
-
-    fwrite(fileHeader, 1, fileHeaderSize, imageFile);
-    fwrite(infoHeader, 1, infoHeaderSize, imageFile);
-
-    char data[SCREEN_SIZE*SCREEN_SIZE*bytesPerPixel];
-
-    int i,j;
-    for(i=0; i<height; i++){
-	
-        fwrite(image+(i*width*bytesPerPixel), bytesPerPixel, width, imageFile);
-	fwrite(padding, 1, paddingSize, imageFile);
-	    
-    } 
-    /*for(i=0; i < height*bytesPerPixel; i+=4){
-	for(j=0; j < width*bytesPerPixel; j+=4){
-		data[i*width+j] = (unsigned char)(image[i*width+j]);
-		data[i*width+j+1] = (unsigned char)(image[i*width+j]>>8);
-		data[i*width+j+2] = (unsigned char)(image[i*width+j]>>16);
-		data[i*width+j+3] = (unsigned char)(image[i*width+j]>>24);
-	}
-    }
-    fwrite(data, sizeof(char), SCREEN_SIZE*SCREEN_SIZE*bytesPerPixel,*/
-
-    fclose(imageFile);
-}
-
-unsigned char* createBitmapFileHeader(int height, int width){
-    int fileSize = fileHeaderSize + infoHeaderSize + bytesPerPixel*height*width;
-
-    static unsigned char fileHeader[] = {
-        0,0, /// signature
-        0,0,0,0, /// image file size in bytes
-        0,0,0,0, /// reserved
-        0,0,0,0, /// start of pixel array
-    };
-
-    fileHeader[ 0] = (unsigned char)('B');
-    fileHeader[ 1] = (unsigned char)('M');
-    fileHeader[ 2] = (unsigned char)(fileSize    );
-    fileHeader[ 3] = (unsigned char)(fileSize>> 8);
-    fileHeader[ 4] = (unsigned char)(fileSize>>16);
-    fileHeader[ 5] = (unsigned char)(fileSize>>24);
-    fileHeader[10] = (unsigned char)(fileHeaderSize + infoHeaderSize);
-
-    return fileHeader;
-}
-
-unsigned char* createBitmapInfoHeader(int height, int width){
-    static unsigned char infoHeader[] = {
-        0,0,0,0, /// header size
-        0,0,0,0, /// image width
-        0,0,0,0, /// image height
-        0,0, /// number of color planes
-        0,0, /// bits per pixel
-        0,0,0,0, /// compression
-        0,0,0,0, /// image size
-        0,0,0,0, /// horizontal resolution
-        0,0,0,0, /// vertical resolution
-        0,0,0,0, /// colors in color table
-        0,0,0,0, /// important color count
-    };
-
-    infoHeader[ 0] = (unsigned char)(infoHeaderSize);
-    infoHeader[ 4] = (unsigned char)(width    );
-    infoHeader[ 5] = (unsigned char)(width>> 8);
-    infoHeader[ 6] = (unsigned char)(width>>16);
-    infoHeader[ 7] = (unsigned char)(width>>24);
-    infoHeader[ 8] = (unsigned char)(height    );
-    infoHeader[ 9] = (unsigned char)(height>> 8);
-    infoHeader[10] = (unsigned char)(height>>16);
-    infoHeader[11] = (unsigned char)(height>>24);
-    infoHeader[12] = (unsigned char)(1);
-    infoHeader[14] = (unsigned char)(bytesPerPixel*8);
-
-    return infoHeader;
 }

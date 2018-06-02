@@ -11,7 +11,7 @@ system_name = platform.system()
 os.system("rm -f %s" % program)
 
 src_dir = "."
-modules = ["trackball.c", "stl.c", "stl_viewer.c"]
+modules = ["stl.c", "stl_viewer.c", "bitmap.c"]
 files = map(lambda module: src_dir + "/" + module, modules)
 files_str = ' '.join(files)
 
