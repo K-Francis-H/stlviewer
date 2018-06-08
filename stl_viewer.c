@@ -41,6 +41,7 @@
 #include <OpenGL/glu.h>
 #endif
 
+
 #include "stl.h"
 //#include "trackball.h"
 #include "bitmap.h"
@@ -87,11 +88,15 @@ static float z_ang = 0.0;
 static GLfloat rot_matrix[16];
 void rotate(float m[16], float x_deg, float y_deg, float z_deg);
 
+GLuint fbo_id, rbo_id;
+
+
+
 //void generateBitmapImage(unsigned char *image, int height, int width, char* imageFileName);
 //unsigned char* createBitmapFileHeader(int height, int width);
 //unsigned char* createBitmapInfoHeader(int height, int width);
 
-void screenshot2(int frame_num);
+void screenshot(int frame_num);
 
 
 
@@ -277,6 +282,10 @@ drawTriangle(	GLfloat x1, GLfloat y1, GLfloat z1,
 void
 drawBox(void)
 {
+	GLfloat *vertices = NULL;
+	GLuint triangle_cnt = 0;
+	int i = 0, base = 0;
+	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	glPushMatrix();
@@ -301,11 +310,33 @@ drawBox(void)
 	glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular );
 	glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
 
-        glCallList(model);
+	//get stl stuff
+	stl_error_t err =  stl_vertices(stl, &vertices);
+	triangle_cnt = stl_facet_cnt(stl);
+
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);//fbo_id);
+        //glCallList(model);
+	glBegin(GL_TRIANGLES);
+	for (i = 0; i < triangle_cnt; i++) {
+		base = i*18;
+		drawTriangle(vertices[base], vertices[base + 1], vertices[base + 2],
+			     vertices[base + 6], vertices[base + 7], vertices[base + 8],
+			     vertices[base + 12], vertices[base + 13], vertices[base + 14]);
+	}
+	glEnd();
 
         glPopMatrix();
 
 	glFlush();
+	//screenshot(0);
+
+	//now blit to real frame buffer
+	/*glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_id);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	glBlitFramebuffer(0,0,SCREEN_SIZE,SCREEN_SIZE,0,0,SCREEN_SIZE,SCREEN_SIZE,GL_COLOR_BUFFER_BIT,GL_NEAREST);*/
+	
 	glutSwapBuffers();
 }
 
@@ -313,9 +344,12 @@ int frame_count = 0;
 void
 idle_func(void)
 {
-	z_ang += 5.0;
+	//TODO turn these into cmd line vars
+	z_ang += 1.0;
+	//x_ang += 1.0;
+	//y_ang += 1.0;
 	rotate(rot_matrix, x_ang, y_ang, z_ang);
-	screenshot2(frame_count);
+	screenshot(frame_count);
 	if(z_ang >= 360.0){
 		exit(0);
 	}else{
@@ -378,12 +412,14 @@ init(char *filename)
 	glEnable(GL_DEPTH_TEST);
 	glShadeModel(GL_SMOOTH);
 
-        glClearColor(135.0 / 255, 206.0 / 255.0, 250.0 / 255.0, 0.0);
+        glClearColor(135.0 / 255, 206.0 / 255.0, 250.0 / 255.0, 0.0);	//TODO make this an input, but this the default
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glColor3f(120.0 / 255.0 , 120.0 / 255.0, 120.0 / 255.0);
 
         glEnable(GL_NORMALIZE);
 	glEnable(GL_COLOR_MATERIAL);
+
+	glEnable(GL_TEXTURE_2D);
 
 	glFlush();
 }
@@ -411,32 +447,73 @@ void create_texture(void){
 	//glTexImage2D(GL_TEXTURE_2D, 0, 
 }
 
+void create_fbo(int width, int height){
+	
+	glGenFramebuffers(1, &fbo_id);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo_id); //set to read AND write from this buffer
+	
+	//now create a texture (our invisible screen) for colors
+	/*GLuint texture_id;
+	glGenTextures(1, &texture_id);
+	glBindTexture(GL_TEXTURE_2D, texture_id);
+	glActiveTexture(texture_id);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+   	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	glFrameBufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture_id, 0);*/
+
+	//create a renderbuffer to draw into
+	glGenRenderbuffers(1, &rbo_id);
+	glBindRenderbuffer(GL_RENDERBUFFER, rbo_id);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA, width, height);
+
+
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rbo_id);
+		
+	
+}
+
 void display_viewport_info(void){
 	GLint viewport[4];
 	glGetIntegerv( GL_VIEWPORT, viewport );
 	printf("viewport info:\ntop left: (%d, %d)\nbottom right: (%d, %d)", viewport[0], viewport[1], viewport[2], viewport[3]);
 }
 
-void screenshot2(int frame_num){
+void screenshot(int frame_num){
 
 	GLuint pixels[SCREEN_SIZE*SCREEN_SIZE];
+	//glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_id);
+	//glReadBuffer(GL_BACK);//read from renderbuffer
 	glReadPixels(0,0, SCREEN_SIZE, SCREEN_SIZE, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, pixels);
 
 	int i;
 	for(i=0; i < SCREEN_SIZE*SCREEN_SIZE; i++){
 		pixels[i] >>= 8; //prevents weird interpeting of alpha as color leading to shitty blue shift
 	}
-	char file_name[21];
+	char file_name[24];
+	//char *file_name = NULL;
 
 	if(frame_num < 10){
+		//file_name = (char*)malloc(sizeof(char)*22);//+1 for \0
 		sprintf(file_name, "/tmp/stl2gif/000%i.bmp", frame_num);
+		//file_name[21] = '\0';
 	}else if(frame_num < 100){
+		//file_name = (char*)malloc(sizeof(char)*23);//+1 for \0
 		sprintf(file_name, "/tmp/stl2gif/00%i.bmp", frame_num);
+		//file_name[22] = '\0';
 	}else{
+		//file_name = (char*)malloc(sizeof(char)*24);//+1 for \0
 		sprintf(file_name, "/tmp/stl2gif/0%i.bmp", frame_num);
+		//file_name[23] = '\0';
 	}
-	//printf("%s", file_name);
-    	generateBitmapImage((unsigned char *)pixels, SCREEN_SIZE, SCREEN_SIZE, file_name );
+	//printf("%s\n", file_name);
+    	generateBitmapImage((unsigned char *)pixels, SCREEN_SIZE, SCREEN_SIZE, file_name);
+
+
 }
 
 
@@ -461,10 +538,14 @@ int main(int argc, char **argv)
   glutDisplayFunc(display);
   glutReshapeFunc(reshape);
   glutIdleFunc(idle_func);
+  glutHideWindow();
+  
+  
   init(argv[1]);
-
+  reshape(SCREEN_SIZE, SCREEN_SIZE);
+  //create_fbo(SCREEN_SIZE, SCREEN_SIZE);
   //trackball(rot_cur_quat, 0.0, -0.8, 0.0, 0.0);
-  rotate(rot_matrix, x_ang, y_ang, z_ang);
+  //rotate(rot_matrix, x_ang, y_ang, z_ang);
   //display_viewport_info();
   /*while(1){
 	z_ang += 15.0;
@@ -474,7 +555,11 @@ int main(int argc, char **argv)
   }*/
   //init();
   //display();
-  //screenshot2();
-  glutMainLoop();
+  //screenshot2(0);
+  //glutMainLoop();
+  while(1){
+	display();
+	idle_func();
+  }
   return 0;             /* ANSI C requires main to return int. */
 }
