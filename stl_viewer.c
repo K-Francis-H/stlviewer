@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #ifdef _Linux_
 #include <GL/glut.h>
@@ -85,10 +86,15 @@ static float mat_specular[] = { 0.5, 0.5, 0.5, 1.0 };
 static float x_ang = -55.0;
 static float y_ang = 0.0;
 static float z_ang = 0.0;
+static float x_change = 0.0;
+static float y_change = 0.0;
+static float z_change = 5.0;
 static GLfloat rot_matrix[16];
 void rotate(float m[16], float x_deg, float y_deg, float z_deg);
 
 GLuint fbo_id, rbo_id;
+
+char* gif_file_out = "stl.gif";
 
 
 
@@ -345,9 +351,9 @@ void
 idle_func(void)
 {
 	//TODO turn these into cmd line vars
-	z_ang += 1.0;
-	//x_ang += 1.0;
-	//y_ang += 1.0;
+	z_ang += z_change;
+	x_ang += x_change;
+	y_ang += y_change;
 	rotate(rot_matrix, x_ang, y_ang, z_ang);
 	screenshot(frame_count);
 	if(z_ang >= 360.0){
@@ -408,7 +414,11 @@ init(char *filename)
 	glEnd();
         glEndList();
 
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	if(wiremesh){
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	}else{
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	}
 	glEnable(GL_DEPTH_TEST);
 	glShadeModel(GL_SMOOTH);
 
@@ -518,19 +528,112 @@ void screenshot(int frame_num){
 
 
 
+
 int main(int argc, char **argv)
 {
 
-  if (argc != 2) {
-	fprintf(stderr, "%s <stl file>\n", argv[0]);
-	exit(1);
+  char* stl_file_in = NULL;
+
+  //setup xyz angle changes
+  x_change = 0.0;
+  y_change = 0.0;
+  z_change = 5.0; //default af
+  
+  opterr = 0; //from <unistd.h>
+  int flag;
+  int is_infile = 0;
+  //options help, version, infile, outfile, x rotation angle, y rotation angle, z rotation angle, zoom(see) factor
+  while( (flag = getopt(argc, argv, "hvwi:o:x:y:z:s:")) != -1 ){
+	switch(flag){
+		case 'h':
+			//TODO print help message
+			printf("usage: ./stl2gif -i INPUT_FILENAME_MANDATORY -oxyzs\n"); 
+			exit(0);
+			break;
+		case 'v':
+			//TODO print version string
+			printf("STL 2 GIF Version X\n");
+			exit(0);
+			break;
+		case 'w':
+			wiremesh = 1;
+			break;
+		case 'i':
+			stl_file_in = optarg;
+			printf("in file: %s\n", optarg);
+			is_infile = 1;
+			break;
+		case 'o':
+			//TODO rename default out file, doesn't work cause thats done by the shell
+			gif_file_out = optarg;
+			break;
+		case 'x':
+			x_change = strtof(optarg, optarg+strlen(optarg));
+			break;
+		case 'y':
+			y_change = strtof(optarg, optarg+strlen(optarg));
+			break;
+		case 'z':
+			z_change = strtof(optarg, optarg+strlen(optarg));
+			break;
+		case 's':
+			zoom = strtof(optarg, optarg+strlen(optarg));
+			break;
+		case '?':
+		default:
+			//if(strcmp(optopt, "--") == 0){
+			//	continue;
+			//}	
+			switch(optopt){
+				case '-': //long arg --version or --help
+					break;
+				case 'i':
+				case 'o':;
+				case 'x':
+				case 'y':
+				case 'z':
+				case 's':
+					fprintf(stderr, "Option -%c requires an argument\n", optopt);
+					break;
+				default:
+					fprintf(stderr, "Unknown option -%c\n", optopt);
+					break;
+			}
+			//exit(0);
+			break;
+	}
   }
+  //now check for --help, --version based off of optind
+  int i;
+  for(i=optind; i < argc; i++){
+	if(strcmp(argv[i], "--help") == 0){
+		//TODO print help message
+		printf("usage: ./stl2gif -i INPUT_FILENAME_MANDATORY -oxyzs\n");
+		exit(0);
+	}
+	if(strcmp(argv[i], "--version") == 0){
+		//TODO print version string
+		printf("STL 2 GIF Version X\n");
+		exit(0);
+	}
+	//else ignore
+  }
+
+  if(!is_infile){
+	printf("usage: ./stl2gif -i INPUT_FILENAME_MANDATORY -oxyzs\n");
+	exit(0);
+  }
+
+  //if (argc != 2) {
+  //	fprintf(stderr, "%s <stl file>\n", argv[0]);
+  //	exit(1);
+  //}
 
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 
   glutInitWindowSize(SCREEN_SIZE, SCREEN_SIZE);
-  glutCreateWindow(argv[1]);
+  glutCreateWindow(stl_file_in);
   
   glutKeyboardFunc(keyboardFunc);
   glutMotionFunc(mouse_motion); 
@@ -541,7 +644,7 @@ int main(int argc, char **argv)
   glutHideWindow();
   
   
-  init(argv[1]);
+  init(stl_file_in);
   reshape(SCREEN_SIZE, SCREEN_SIZE);
   //create_fbo(SCREEN_SIZE, SCREEN_SIZE);
   //trackball(rot_cur_quat, 0.0, -0.8, 0.0, 0.0);
