@@ -3,10 +3,10 @@ Install dependencies
 For UNIX / Linux, simply enter the following command that will install all necessary packages:
 
 (Debian, Fedora)
-% sudo apt-get install freeglut3 freeglut3-dev
+% sudo apt-get install freeglut3 freeglut3-dev imagemagick
 
 (Vine)
-% sudo apt-get install freeglut freeglut-devel
+% sudo apt-get install freeglut freeglut-devel imagemagick
 
 (RedHat, Fedora)
 % sudo yum install freeglut
@@ -16,15 +16,25 @@ Compile
 -------
 ./compile.py
 
-Viewer
-------
-./stlviewer stlfile
+Usage
+-------
+./stl2gif -i [input-file] [OPTIONS]
 
 Options
 -------
 
-z : Zoom in
-x : Zoom out
-w : wiremesh mode
-r : Reset the view 
-Use the mouse with the left button down to rotate the object
+-h : Print help message
+
+-i : STL infile path (MANDATORY)
+
+-o : GIF outfile name
+
+-s : Set zoom factor. Default is 2.5
+
+-w : Render in wiremesh mode. Default is filled polygons
+
+-x : Set X axis rotation speed. Default is 0.0
+
+-y : Set Y axis rotation speed. Default is 0.0
+
+-z : Set Z axis rotation speed. Default is 5.0
