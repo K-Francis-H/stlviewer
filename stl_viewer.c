@@ -418,7 +418,6 @@ int main(int argc, char **argv)
 			break;
 		case 'i':
 			stl_file_in = optarg;
-			printf("in file: %s\n", optarg);
 			is_infile = 1;
 			break;
 		case 'o':
