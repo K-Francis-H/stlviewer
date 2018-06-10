@@ -1,7 +1,8 @@
 #!/bin/bash
 
+#TODO check for -o opt in $@ if found take next and use that as file out name
 mkdir /tmp/stl2gif
-./stlviewer $1
+./stlviewer $@
 for f in /tmp/stl2gif/*.bmp; 
 do 
     convert $f $f.jpg;

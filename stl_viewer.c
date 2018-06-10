@@ -44,7 +44,6 @@
 
 
 #include "stl.h"
-//#include "trackball.h"
 #include "bitmap.h"
 
 #define MAX( x, y) (x) > (y) ? (x) : (y)
@@ -61,7 +60,6 @@
 
 #define SCREEN_SIZE 256
 
-//static int rotating = 0;
 static int wiremesh = 0;
 static GLfloat scale = DEFAULT_SCALE;
 static stl_t *stl;
@@ -78,11 +76,6 @@ static float light_specular[4] = {0.5, 0.5, 0.5, 1.0};
 static float mat_shininess[] = {10.0};
 static float mat_specular[] = { 0.5, 0.5, 0.5, 1.0 };
 
-//static float rot_cur_quat[4];
-//static float rot_last_quat[4];
-//static int rot_begin_x = 0;
-//static int rot_begin_y = 0;
-
 static float x_ang = -55.0;
 static float y_ang = 0.0;
 static float z_ang = 0.0;
@@ -96,18 +89,7 @@ GLuint fbo_id, rbo_id;
 
 char* gif_file_out = "stl.gif";
 
-
-
-//void generateBitmapImage(unsigned char *image, int height, int width, char* imageFileName);
-//unsigned char* createBitmapFileHeader(int height, int width);
-//unsigned char* createBitmapInfoHeader(int height, int width);
-
 void screenshot(int frame_num);
-
-
-
-//texture stuff
-GLuint texture[1];
 
 static GLuint model;
 
@@ -116,79 +98,6 @@ typedef struct {
 	GLfloat y;
 	GLfloat z;
 } vector_t;
-
-typedef union{
-	unsigned int pixel;
-	char rgba[4];
-} pixel;
-
-static void 
-mouse_motion(int x, int y) 
-{
-        /*if (rotating) {
-                trackball(rot_last_quat, 
-                         (2.0 * rot_begin_x - screen_width) / screen_width,
-                         (screen_height - 2.0 * rot_begin_y) / screen_height,
-                         (2.0 * x - screen_width) / screen_width,
-                         (screen_height - 2.0 * y) / screen_height); 
-                rot_begin_x = x;
-                rot_begin_y = y;
-                add_quats(rot_last_quat, rot_cur_quat, rot_cur_quat);
-        }*/
-}
-
-static void
-mouse_click(int button, int state, int x, int y) 
-{
-        /*if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-                rotating = 1;
-                rot_begin_x = x;
-                rot_begin_y = y;
-        }
-
-        if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
-                rotating = 0;
-        }*/
-}
-
-//just use this as an interface to modify via command line
-static void
-keyboardFunc(unsigned char key, int x, int y)
-{
-	/*switch (key) {
-		case 'z':
-                case 'Z':
-			zoom += 0.2;
-			break;
-		case 'x':
-                case 'X':
-			zoom -= 0.2;
-			break;
-		case 'w':
-                case 'W':
-                        if (wiremesh == 0) {
-			        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-                                wiremesh = 1;
-                        } else {
-                                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-                                wiremesh = 0;
-                        }
-			break;
-                case 'r':
-                case 'R':
-                        scale = DEFAULT_SCALE;
-                        trackball(rot_cur_quat, 0.0, 0.0, 0.0, 0.0);
-                        zoom = DEFAULT_ZOOM;
-                        break;
-		case 'q':
-                case 'Q':
-			exit(0);
-			break;
-		default:
-			break;
-
-	}*/
-}
 
 static void
 ortho_dimensions(GLfloat *min_x, GLfloat *max_x,
@@ -334,14 +243,6 @@ drawBox(void)
         glPopMatrix();
 
 	glFlush();
-	//screenshot(0);
-
-	//now blit to real frame buffer
-	/*glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_id);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	glBlitFramebuffer(0,0,SCREEN_SIZE,SCREEN_SIZE,0,0,SCREEN_SIZE,SCREEN_SIZE,GL_COLOR_BUFFER_BIT,GL_NEAREST);*/
 	
 	glutSwapBuffers();
 }
@@ -450,49 +351,6 @@ void rotate(float m[16], float x_deg, float y_deg, float z_deg){
 	m[3] = 0;                      m[7] = 0;                      m[11] = 0;         m[15] = 1;
 }
 
-void create_texture(void){
-	glGenTextures(1, texture);
-	glBindTexture(GL_TEXTURE_2D, texture[0]);
-	glActiveTexture(texture[0]);
-	//glTexImage2D(GL_TEXTURE_2D, 0, 
-}
-
-void create_fbo(int width, int height){
-	
-	glGenFramebuffers(1, &fbo_id);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo_id); //set to read AND write from this buffer
-	
-	//now create a texture (our invisible screen) for colors
-	/*GLuint texture_id;
-	glGenTextures(1, &texture_id);
-	glBindTexture(GL_TEXTURE_2D, texture_id);
-	glActiveTexture(texture_id);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-   	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-
-	glFrameBufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture_id, 0);*/
-
-	//create a renderbuffer to draw into
-	glGenRenderbuffers(1, &rbo_id);
-	glBindRenderbuffer(GL_RENDERBUFFER, rbo_id);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA, width, height);
-
-
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rbo_id);
-		
-	
-}
-
-void display_viewport_info(void){
-	GLint viewport[4];
-	glGetIntegerv( GL_VIEWPORT, viewport );
-	printf("viewport info:\ntop left: (%d, %d)\nbottom right: (%d, %d)", viewport[0], viewport[1], viewport[2], viewport[3]);
-}
-
 void screenshot(int frame_num){
 
 	GLuint pixels[SCREEN_SIZE*SCREEN_SIZE];
@@ -547,7 +405,7 @@ int main(int argc, char **argv)
 	switch(flag){
 		case 'h':
 			//TODO print help message
-			printf("usage: ./stl2gif -i INPUT_FILENAME_MANDATORY -oxyzs\n"); 
+			printf("usage: ./stl2gif -i [FILE] [OPTIONS] \n"); 
 			exit(0);
 			break;
 		case 'v':
@@ -608,7 +466,7 @@ int main(int argc, char **argv)
   for(i=optind; i < argc; i++){
 	if(strcmp(argv[i], "--help") == 0){
 		//TODO print help message
-		printf("usage: ./stl2gif -i INPUT_FILENAME_MANDATORY -oxyzs\n");
+		printf("usage: ./stl2gif -i [FILE] [OPTIONS] \n");
 		exit(0);
 	}
 	if(strcmp(argv[i], "--version") == 0){
@@ -620,46 +478,21 @@ int main(int argc, char **argv)
   }
 
   if(!is_infile){
-	printf("usage: ./stl2gif -i INPUT_FILENAME_MANDATORY -oxyzs\n");
+	printf("usage: ./stl2gif -i [FILE] [OPTIONS] \n");
 	exit(0);
   }
 
-  //if (argc != 2) {
-  //	fprintf(stderr, "%s <stl file>\n", argv[0]);
-  //	exit(1);
-  //}
 
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 
   glutInitWindowSize(SCREEN_SIZE, SCREEN_SIZE);
   glutCreateWindow(stl_file_in);
-  
-  glutKeyboardFunc(keyboardFunc);
-  glutMotionFunc(mouse_motion); 
-  glutMouseFunc(mouse_click);
-  glutDisplayFunc(display);
-  glutReshapeFunc(reshape);
-  glutIdleFunc(idle_func);
   glutHideWindow();
   
   
   init(stl_file_in);
   reshape(SCREEN_SIZE, SCREEN_SIZE);
-  //create_fbo(SCREEN_SIZE, SCREEN_SIZE);
-  //trackball(rot_cur_quat, 0.0, -0.8, 0.0, 0.0);
-  //rotate(rot_matrix, x_ang, y_ang, z_ang);
-  //display_viewport_info();
-  /*while(1){
-	z_ang += 15.0;
-	rotate(rot_matrix, x_ang, y_ang, z_ang);
-	display();
-	sleep(1000);
-  }*/
-  //init();
-  //display();
-  //screenshot2(0);
-  //glutMainLoop();
   while(1){
 	display();
 	idle_func();

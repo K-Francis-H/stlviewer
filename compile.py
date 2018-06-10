@@ -4,7 +4,7 @@ import os
 import sys
 import platform
 
-program = "stlviewer"
+program = "_stl2gif"
 
 system_name = platform.system()
 
