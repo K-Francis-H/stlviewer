@@ -11,6 +11,7 @@ For UNIX / Linux, simply enter the following command that will install all neces
 (RedHat, Fedora)
 % sudo yum install freeglut
 % sudo yum install freeglut-devel
+% sudo yum install imagemagick
 
 Compile
 -------

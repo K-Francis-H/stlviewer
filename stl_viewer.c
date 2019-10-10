@@ -395,21 +395,20 @@ int main(int argc, char **argv)
   //setup xyz angle changes
   x_change = 0.0;
   y_change = 0.0;
-  z_change = 5.0; //default af
+  z_change = 1.0; //default af
   
   opterr = 0; //from <unistd.h>
   int flag;
   int is_infile = 0;
+  int is_outfile = 0;
   //options help, version, infile, outfile, x rotation angle, y rotation angle, z rotation angle, zoom(see) factor
   while( (flag = getopt(argc, argv, "hvwi:o:x:y:z:s:")) != -1 ){
 	switch(flag){
 		case 'h':
-			//TODO print help message
 			printf("usage: ./stl2gif -i [FILE] [OPTIONS] \n"); 
 			exit(0);
 			break;
 		case 'v':
-			//TODO print version string
 			printf("STL 2 GIF Version X\n");
 			exit(0);
 			break;
@@ -421,8 +420,11 @@ int main(int argc, char **argv)
 			is_infile = 1;
 			break;
 		case 'o':
-			//TODO rename default out file, doesn't work cause thats done by the shell
+			//this is done in the shell stl2gif.sh we print the name as the output of this program
+			//and it uses it to assign the output file name
 			gif_file_out = optarg;
+			printf(gif_file_out);
+			is_outfile = 1;
 			break;
 		case 'x':
 			x_change = strtof(optarg, optarg+strlen(optarg));
@@ -479,6 +481,10 @@ int main(int argc, char **argv)
   if(!is_infile){
 	printf("usage: ./stl2gif -i [FILE] [OPTIONS] \n");
 	exit(0);
+  }
+
+  if(!is_outfile){
+	printf("stl.gif");//default outfile name
   }
 
 
