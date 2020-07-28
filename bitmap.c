@@ -26,6 +26,7 @@ void generateBitmapImage(unsigned char *image, int height, int width, char* imag
     } 
 
     fclose(imageFile);
+
 }
 
 unsigned char* createBitmapFileHeader(int height, int width){

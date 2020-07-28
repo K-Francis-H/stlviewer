@@ -25,6 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 
 #include <stdio.h>
@@ -58,7 +60,8 @@
 #define MAX_Z_ORTHO_FACTOR 20
 #define ROTATION_FACTOR 15
 
-#define SCREEN_SIZE 256
+#define SCREEN_SIZE 1024
+#define DEFAULT_SCREEN_SIZE 256
 
 static int wiremesh = 0;
 static GLfloat scale = DEFAULT_SCALE;
@@ -68,6 +71,7 @@ static float zoom = DEFAULT_ZOOM;
 
 static int screen_width = 0;
 static int screen_height = 0;
+int screen_size = DEFAULT_SCREEN_SIZE;
 
 static float global_ambient_light[4] = {0.0, 0.0, 0.0, 0};
 static float light_ambient[4] = {0.3, 0.3, 0.3, 0.0};
@@ -213,6 +217,7 @@ drawBox(void)
 
 	glScalef(zoom, zoom, zoom);
 
+
         //GLfloat rot_matrix[4][4];
         //build_rotmatrix(rot_matrix, rot_cur_quat);
         glMultMatrixf(&rot_matrix[0]);
@@ -225,9 +230,11 @@ drawBox(void)
 	glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular );
 	glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
 
+
 	//get stl stuff
 	stl_error_t err =  stl_vertices(stl, &vertices);
 	triangle_cnt = stl_facet_cnt(stl);
+
 
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);//fbo_id);
         //glCallList(model);
@@ -262,6 +269,7 @@ idle_func(void)
 	}else{
 		frame_count++;
 	}
+
 	glutPostRedisplay();
 }
 
@@ -353,18 +361,27 @@ void rotate(float m[16], float x_deg, float y_deg, float z_deg){
 
 void screenshot(int frame_num){
 
-	GLuint pixels[SCREEN_SIZE*SCREEN_SIZE];
+
+	GLuint pixels[screen_size*screen_size];
 	//glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_id);
 	//glReadBuffer(GL_BACK);//read from renderbuffer
-	glReadPixels(0,0, SCREEN_SIZE, SCREEN_SIZE, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, pixels);
+	glReadPixels(0,0, screen_size, screen_size, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, pixels);
+
 
 	int i;
-	for(i=0; i < SCREEN_SIZE*SCREEN_SIZE; i++){
+	for(i=0; i < screen_size*screen_size; i++){
 		pixels[i] >>= 8; //prevents weird interpeting of alpha as color leading to shitty blue shift
 	}
 	char file_name[24];
 	//char *file_name = NULL;
 
+	//check that /tmp/stl2gif dir exists, create if not 
+	struct stat st = {0};	
+	if(stat("/tmp/stl2gif", &st) == -1){ 	
+		mkdir("/tmp/stl2gif", 0666);
+	}
+
+	
 	if(frame_num < 10){
 		//file_name = (char*)malloc(sizeof(char)*22);//+1 for \0
 		sprintf(file_name, "/tmp/stl2gif/000%i.bmp", frame_num);
@@ -378,8 +395,9 @@ void screenshot(int frame_num){
 		sprintf(file_name, "/tmp/stl2gif/0%i.bmp", frame_num);
 		//file_name[23] = '\0';
 	}
+
 	//printf("%s\n", file_name);
-    	generateBitmapImage((unsigned char *)pixels, SCREEN_SIZE, SCREEN_SIZE, file_name);
+    	generateBitmapImage((unsigned char *)pixels, screen_size, screen_size, file_name);
 
 
 }
@@ -402,7 +420,7 @@ int main(int argc, char **argv)
   int is_infile = 0;
   int is_outfile = 0;
   //options help, version, infile, outfile, x rotation angle, y rotation angle, z rotation angle, zoom(see) factor
-  while( (flag = getopt(argc, argv, "hvwi:o:x:y:z:s:")) != -1 ){
+  while( (flag = getopt(argc, argv, "hvwi:d:o:x:y:z:s:")) != -1 ){
 	switch(flag){
 		case 'h':
 			printf("usage: ./stl2gif -i [FILE] [OPTIONS] \n"); 
@@ -419,11 +437,14 @@ int main(int argc, char **argv)
 			stl_file_in = optarg;
 			is_infile = 1;
 			break;
+		case 'd': //dimension(s) TODO : (s)
+			screen_size = (int)( strtol(optarg, optarg+strlen(optarg), 10) );
+			break;
 		case 'o':
 			//this is done in the shell stl2gif.sh we print the name as the output of this program
 			//and it uses it to assign the output file name
 			gif_file_out = optarg;
-			printf(gif_file_out);
+			printf(optarg); //this is necessary for bash script to know what to name the gif
 			is_outfile = 1;
 			break;
 		case 'x':
@@ -447,7 +468,8 @@ int main(int argc, char **argv)
 				case '-': //long arg --version or --help
 					break;
 				case 'i':
-				case 'o':;
+				case 'd':
+				case 'o':
 				case 'x':
 				case 'y':
 				case 'z':
@@ -491,13 +513,15 @@ int main(int argc, char **argv)
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 
-  glutInitWindowSize(SCREEN_SIZE, SCREEN_SIZE);
+  glutInitWindowSize(screen_size, screen_size);
   glutCreateWindow(stl_file_in);
   glutHideWindow();
   
-  
+
   init(stl_file_in);
-  reshape(SCREEN_SIZE, SCREEN_SIZE);
+
+  reshape(screen_size, screen_size);
+
   while(1){
 	display();
 	idle_func();
